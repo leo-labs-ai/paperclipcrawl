@@ -1,5 +1,7 @@
 # paperclipcrawl
 
+> **leo-labs** is the brand name (Leonardo + leopard). The GitHub org slug is [leo-labs-ai](https://github.com/leo-labs-ai); `lue-labs` web and git URLs redirect, but npm scopes, `ghcr.io` paths and Actions `uses:` refs do not.
+
 Offline SQLite mirror for [Paperclip](https://github.com/paperclipai/paperclip) — the
 crawl-family sibling (`gitcrawl` / `discrawl` / `slacrawl`) for board data.
 
