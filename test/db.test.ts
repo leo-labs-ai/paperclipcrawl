@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import fs from "node:fs";
 import { currentSchemaVersion, getMeta, hasFts5, journalMode, migrate, openDb, setMeta, tableCounts } from "../src/lib/db.ts";
 import { SCHEMA_VERSION } from "../src/lib/schema.ts";
-import { upsertIssue, upsertAgent, upsertComment } from "../src/lib/store.ts";
+import { upsertIssue, upsertAgent, upsertApproval, upsertComment, upsertProject } from "../src/lib/store.ts";
 import { REDACTED } from "../src/lib/redact.ts";
 import { search, getIssue, listIssues, toFtsQuery } from "../src/lib/query.ts";
 import { comment, issue, tmpDb } from "./helpers.ts";
@@ -41,6 +41,25 @@ describe("db", () => {
 });
 
 describe("store + search", () => {
+  test("nested secrets stay out of stored project and approval records", () => {
+    const t = tmpDb(); cleanup = t.cleanup;
+    const now = new Date().toISOString();
+    upsertProject(t.db, {
+      id: "project-1", companyId: "company-1", name: "Example", env: { PLAIN: "private-env" },
+      settings: { nested: [{ apiKey: "private-key", tokenName: "visible-name", note: "visible-note" }] },
+    }, now);
+    upsertApproval(t.db, {
+      id: "approval-1", companyId: "company-1", status: "pending",
+      context: { items: [{ password: "private-password", label: "visible-label" }] },
+    }, now);
+
+    const project = JSON.parse(t.db.query<{ raw_json: string }, []>("SELECT raw_json FROM projects WHERE id='project-1'").get()!.raw_json);
+    const approval = JSON.parse(t.db.query<{ raw_json: string }, []>("SELECT raw_json FROM approvals WHERE id='approval-1'").get()!.raw_json);
+    expect(project.env).toBe(REDACTED);
+    expect(project.settings.nested).toEqual([{ apiKey: REDACTED, tokenName: "visible-name", note: "visible-note" }]);
+    expect(approval.context.items).toEqual([{ password: REDACTED, label: "visible-label" }]);
+  });
+
   test("upsert keeps FTS in sync; secrets redacted at write time", () => {
     const t = tmpDb(); cleanup = t.cleanup;
     const now = new Date().toISOString();
